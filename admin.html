@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>管理画面 — 生成AI講義</title>
+<style>
+:root {
+  --bg: #faf9f6; --bg-elev: #ffffff; --border: #e6e3dc;
+  --border-strong: #d4cfc4; --text: #2a2a2a; --text-muted: #6b6b6b;
+  --accent: #c96442; --accent-hover: #b15535; --accent-soft: #fbeee5;
+  --advanced: #8c5fb1; --shadow: 0 1px 3px rgba(0,0,0,0.04);
+  --radius: 8px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); }
+
+.admin-header {
+  background: var(--bg-elev); border-bottom: 1px solid var(--border);
+  padding: 16px 24px; display: flex; align-items: center; gap: 16px;
+}
+.admin-header h1 { font-size: 18px; flex: 1; }
+.admin-header a { color: var(--accent); text-decoration: none; font-size: 13px; }
+.admin-header .logout-btn {
+  font-size: 12px; color: var(--accent); cursor: pointer;
+  background: none; border: 1px solid var(--accent); border-radius: 4px; padding: 6px 12px;
+}
+
+.admin-body { max-width: 1000px; margin: 24px auto; padding: 0 24px; }
+
+.section-title { font-size: 15px; font-weight: 700; margin-bottom: 12px; color: var(--text); }
+
+/* Add Student */
+.add-student {
+  background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 20px; margin-bottom: 24px; display: flex; gap: 10px; flex-wrap: wrap; align-items: end;
+}
+.add-student .field { display: flex; flex-direction: column; gap: 4px; }
+.add-student label { font-size: 11px; font-weight: 700; color: var(--text-muted); letter-spacing: 0.04em; }
+.add-student input {
+  padding: 8px 12px; font-size: 13px; border: 1px solid var(--border-strong);
+  border-radius: 6px; width: 240px;
+}
+.add-student button {
+  padding: 8px 16px; font-size: 13px; font-weight: 700;
+  background: var(--accent); color: white; border: none; border-radius: 6px; cursor: pointer;
+  align-self: end;
+}
+.add-student button:hover { background: var(--accent-hover); }
+
+/* Student list */
+.student-card {
+  background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 20px; margin-bottom: 16px;
+}
+.student-header {
+  display: flex; align-items: center; gap: 12px; margin-bottom: 16px;
+}
+.student-email { font-size: 14px; font-weight: 700; flex: 1; }
+.student-delete {
+  font-size: 11px; color: #c0392b; cursor: pointer;
+  background: none; border: 1px solid #c0392b; border-radius: 4px; padding: 4px 10px;
+}
+.topic-toggles {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 6px;
+}
+.topic-toggle {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px; padding: 6px 8px;
+  border: 1px solid var(--border); border-radius: 6px;
+  cursor: pointer; user-select: none;
+  transition: all 0.15s;
+}
+.topic-toggle.active {
+  background: var(--accent-soft); border-color: var(--accent); color: var(--accent); font-weight: 600;
+}
+.topic-toggle .toggle-dot {
+  width: 10px; height: 10px; border-radius: 50%;
+  border: 2px solid var(--border-strong); flex-shrink: 0;
+}
+.topic-toggle.active .toggle-dot {
+  background: var(--accent); border-color: var(--accent);
+}
+
+.level-label {
+  font-size: 11px; font-weight: 700; color: var(--text-muted);
+  margin: 10px 0 6px; letter-spacing: 0.04em; grid-column: 1 / -1;
+}
+
+.msg { font-size: 13px; color: var(--text-muted); padding: 40px; text-align: center; }
+.error-msg { color: #c0392b; font-size: 13px; margin-top: 8px; }
+.success-msg { color: #27ae60; font-size: 13px; margin-top: 8px; }
+
+/* Loading */
+.loading-overlay {
+  position: fixed; inset: 0; z-index: 9999; background: var(--bg);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; color: var(--text-muted);
+}
+</style>
+</head>
+<body>
+<div class="loading-overlay" id="loadingOverlay">管理画面を読み込み中...</div>
+
+<div id="adminApp" style="display:none;">
+  <div class="admin-header">
+    <h1>管理画面</h1>
+    <a href="index.html">← 教材に戻る</a>
+    <button class="logout-btn" onclick="handleLogout()">ログアウト</button>
+  </div>
+
+  <div class="admin-body">
+    <div class="section-title">受講者を追加</div>
+    <div class="add-student">
+      <div class="field">
+        <label>メールアドレス</label>
+        <input type="email" id="newEmail" placeholder="student@example.com">
+      </div>
+      <div class="field">
+        <label>初期パスワード</label>
+        <input type="text" id="newPassword" placeholder="6文字以上" value="">
+      </div>
+      <button onclick="addStudent()">追加</button>
+    </div>
+    <div id="addMsg"></div>
+
+    <div class="section-title">受講者一覧</div>
+    <div id="studentList"><div class="msg">読み込み中...</div></div>
+  </div>
+</div>
+
+<script type="module">
+// ========== Firebase Config ==========
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyCia_vfPYsoLjMy-_cSfpePlyNYOr3bZ8c",
+  authDomain: "ai-lecture-80ef1.firebaseapp.com",
+  projectId: "ai-lecture-80ef1",
+  storageBucket: "ai-lecture-80ef1.firebasestorage.app",
+  messagingSenderId: "773985768249",
+  appId: "1:773985768249:web:165c7e26e0312b71200ee8"
+};
+
+const ALL_TOPICS = [
+  { level: '入門', items: ['M01','M02','M03','M04','M05','M06'] },
+  { level: '応用', items: ['A01','A02','A03','A04','A05','A06','A07','A08','A09','A10'] },
+  { level: 'エージェント', items: ['E01','E02','E03','E04','E05','E06','E07','E08'] },
+  { level: 'アドバンス', items: ['X01','X02','X03','X04','X05','X06'] },
+];
+
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.7.1/firebase-app.js';
+import { getAuth, onAuthStateChanged, signOut, createUserWithEmailAndPassword }
+  from 'https://www.gstatic.com/firebasejs/11.7.1/firebase-auth.js';
+import { getFirestore, doc, getDoc, setDoc, getDocs, updateDoc, deleteDoc, collection }
+  from 'https://www.gstatic.com/firebasejs/11.7.1/firebase-firestore.js';
+
+const app = initializeApp(FIREBASE_CONFIG);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+let students = [];
+
+onAuthStateChanged(auth, async (user) => {
+  if (!user) {
+    window.location.href = 'index.html';
+    return;
+  }
+  const userDoc = await getDoc(doc(db, 'users', user.uid));
+  if (!userDoc.exists() || userDoc.data().role !== 'admin') {
+    alert('管理者権限がありません');
+    window.location.href = 'index.html';
+    return;
+  }
+  document.getElementById('loadingOverlay').style.display = 'none';
+  document.getElementById('adminApp').style.display = 'block';
+  loadStudents();
+});
+
+async function loadStudents() {
+  const snapshot = await getDocs(collection(db, 'users'));
+  students = [];
+  snapshot.forEach(docSnap => {
+    const data = docSnap.data();
+    if (data.role === 'student') {
+      students.push({ uid: docSnap.id, ...data });
+    }
+  });
+  renderStudents();
+}
+
+function renderStudents() {
+  const el = document.getElementById('studentList');
+  if (students.length === 0) {
+    el.innerHTML = '<div class="msg">受講者がまだ登録されていません</div>';
+    return;
+  }
+  el.innerHTML = students.map(s => {
+    const allowed = s.allowedTopics || [];
+    let togglesHtml = '';
+    for (const group of ALL_TOPICS) {
+      togglesHtml += `<div class="level-label">${group.level}</div>`;
+      for (const tid of group.items) {
+        const active = allowed.includes(tid) ? 'active' : '';
+        togglesHtml += `<div class="topic-toggle ${active}" onclick="toggleTopic('${s.uid}','${tid}',this)">
+          <span class="toggle-dot"></span>${tid}
+        </div>`;
+      }
+    }
+    return `<div class="student-card">
+      <div class="student-header">
+        <span class="student-email">${s.email}</span>
+        <button class="student-delete" onclick="deleteStudent('${s.uid}','${s.email}')">削除</button>
+      </div>
+      <div class="topic-toggles">${togglesHtml}</div>
+    </div>`;
+  }).join('');
+}
+
+window.toggleTopic = async function(uid, topicId, el) {
+  const student = students.find(s => s.uid === uid);
+  if (!student) return;
+  let allowed = student.allowedTopics || [];
+  if (allowed.includes(topicId)) {
+    allowed = allowed.filter(t => t !== topicId);
+  } else {
+    allowed.push(topicId);
+  }
+  student.allowedTopics = allowed;
+  el.classList.toggle('active');
+  try {
+    await updateDoc(doc(db, 'users', uid), { allowedTopics: allowed });
+  } catch (err) {
+    console.error('Failed to update:', err);
+    alert('更新に失敗しました');
+  }
+};
+
+window.addStudent = async function() {
+  const email = document.getElementById('newEmail').value.trim();
+  const password = document.getElementById('newPassword').value;
+  const msgEl = document.getElementById('addMsg');
+  msgEl.innerHTML = '';
+
+  if (!email || !password) {
+    msgEl.innerHTML = '<div class="error-msg">メールアドレスとパスワードを入力してください</div>';
+    return;
+  }
+  if (password.length < 6) {
+    msgEl.innerHTML = '<div class="error-msg">パスワードは6文字以上にしてください</div>';
+    return;
+  }
+
+  try {
+    const currentUser = auth.currentUser;
+    const tempAuth = getAuth(initializeApp(FIREBASE_CONFIG, 'temp'));
+    const cred = await createUserWithEmailAndPassword(tempAuth, email, password);
+    await setDoc(doc(db, 'users', cred.user.uid), {
+      email: email,
+      role: 'student',
+      allowedTopics: [],
+      createdAt: new Date().toISOString()
+    });
+    await signOut(tempAuth);
+
+    msgEl.innerHTML = `<div class="success-msg">${email} を追加しました</div>`;
+    document.getElementById('newEmail').value = '';
+    document.getElementById('newPassword').value = '';
+    setTimeout(() => { msgEl.innerHTML = ''; }, 3000);
+    loadStudents();
+  } catch (err) {
+    const msgs = {
+      'auth/email-already-in-use': 'このメールアドレスは既に登録されています',
+      'auth/weak-password': 'パスワードが弱すぎます（6文字以上）',
+      'auth/invalid-email': 'メールアドレスの形式が正しくありません'
+    };
+    msgEl.innerHTML = `<div class="error-msg">${msgs[err.code] || '追加に失敗しました: ' + err.message}</div>`;
+  }
+};
+
+window.deleteStudent = async function(uid, email) {
+  if (!confirm(`${email} を削除しますか？\n※Firestoreのデータのみ削除されます。Authユーザーの削除はFirebaseコンソールで行ってください。`)) return;
+  try {
+    await deleteDoc(doc(db, 'users', uid));
+    students = students.filter(s => s.uid !== uid);
+    renderStudents();
+  } catch (err) {
+    alert('削除に失敗しました');
+  }
+};
+
+window.handleLogout = async function() {
+  await signOut(auth);
+};
+</script>
+</body>
+</html>

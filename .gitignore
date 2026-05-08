@@ -1,0 +1,9 @@
+*.bak
+.DS_Store
+*.png
+教材プラットフォーム.html
+教材プラットフォーム.html.bak
+講義メニュー一覧.md
+初回セッション進行台本.md
+CLAUDE.md
+.claude/
