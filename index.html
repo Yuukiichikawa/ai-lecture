@@ -5420,14 +5420,15 @@ function selectTopic(id) {
 }
 
 function renderTopic(topic) {
-  const tabs = [
+  const allTabs = [
     { key: 'overview', label: '概要' },
     { key: 'lecture', label: '学ぶ' },
     { key: 'practice', label: '試す' },
     { key: 'homework', label: '宿題' },
-    { key: 'teacherNote', label: '講師ノート' },
+    { key: 'teacherNote', label: '講師ノート', adminOnly: true },
     { key: 'downloads', label: 'ダウンロード' }
   ];
+  const tabs = allTabs.filter(t => !t.adminOnly || userRole === 'admin');
 
   let html = `
     <div class="topic-header">
